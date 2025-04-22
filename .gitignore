@@ -1,0 +1,15 @@
+*.*
+Debug/
+!.gitattributes
+!.gitignore
+!readme.md
+!.gitkeep
+!Lab9Main.c
+!LED.c
+!LED.h
+!Sound.c
+!Sound.h
+!Switch.c
+!Switch.h
+!SmallFont.c
+!SmallFont.h
