@@ -81,7 +81,7 @@ int adcVal;
 int score = 0;
 int lives = 3;
 
-bool gameOver = false;
+//bool gameOver = false;
 
 
 // Bullet variables
@@ -99,6 +99,13 @@ bool enemyToggle = false;
 int enemyBulletX[ENEMY_BULLETS];
 int enemyBulletY[ENEMY_BULLETS];
 bool enemyBulletActive[ENEMY_BULLETS];
+
+typedef enum {MENU, PLAYING, WIN, LOSS} GameState_t;
+GameState_t gameState = MENU;
+
+typedef enum {English, Spanish, Portuguese, French} Language_t;
+Language_t myLanguage=Spanish;
+
 
 volatile bool updateFrame = false;
 
@@ -216,10 +223,11 @@ void CheckCollisions(void) {
         enemyAlive[e] = false;
         ST7735_FillRect(enemyX[e], enemyY[e], ENEMY_WIDTH, ENEMY_HEIGHT, ST7735_BLACK);
         ST7735_DrawBitmap(enemyX[e], enemyY[e], SmallExplosion0, ENEMY_WIDTH, ENEMY_HEIGHT);
+        Sound_Explosion();
         Clock_Delay1ms(100); // brief explosion display
         ST7735_FillRect(enemyX[e], enemyY[e], ENEMY_WIDTH + 10, ENEMY_HEIGHT + 10, ST7735_BLACK);
         //enemyAlive[e] = false;
-        Sound_Killed();
+        // Sound_Killed();
         score++;
         
       }
@@ -232,7 +240,8 @@ void CheckCollisions(void) {
       enemyBulletActive[i] = false;
       lives--;
       Sound_Explosion();
-      if (lives <= 0) gameOver = true;
+      // if (lives <= 0) gameOver = true;
+      if (lives <= 0) gameState = LOSS;
     }
   }
 }
@@ -270,7 +279,11 @@ void DrawGame(void) {
 
   ST7735_FillRect(0, 0, 128, 10, ST7735_BLACK);  
   ST7735_SetCursor(0, 0);
-  printf("Score: %d Lives: %d", score, lives);
+ if (myLanguage == English) {
+    printf("Score: %d Lives: %d", score, lives);
+  } else {
+    printf("Puntos: %d Vidas: %d", score, lives);
+  }
 }
 
 
@@ -278,8 +291,7 @@ uint8_t TExaS_LaunchPadLogicPB27PB26(void){
   return (0x80|((GPIOB->DOUT31_0>>26)&0x03));
 }
 
-typedef enum {English, Spanish, Portuguese, French} Language_t;
-Language_t myLanguage=English;
+
 typedef enum {HELLO, GOODBYE, LANGUAGE} phrase_t;
 const char Hello_English[] ="Hello";
 const char Hello_Spanish[] ="\xADHola!";
@@ -432,19 +444,61 @@ int main(void){ // final main
   __enable_irq();
 
   while(1){
+
+    if (gameState == MENU) {
+      ST7735_FillScreen(ST7735_BLACK);
+      ST7735_DrawString(3, 2, "SPACE INVADERS", ST7735_WHITE);
+      ST7735_DrawString(1, 5, "English? Press SW1", ST7735_YELLOW);
+      ST7735_DrawString(1, 6, "Espanol? Press SW2", ST7735_YELLOW);
+      while (gameState == MENU) {
+        uint32_t sw = Switch_In();
+        if ((sw & 0x01) == 1) { 
+          myLanguage = English; 
+          ST7735_FillScreen(ST7735_BLACK);
+          gameState = PLAYING;
+          continue; 
+        }
+        else if ((sw & 0x02) == 2) { 
+          myLanguage = Spanish;
+          ST7735_FillScreen(ST7735_BLACK);
+          gameState = PLAYING;
+          continue; 
+        }
+      }
+    }
+
     if (updateFrame) {
+      
       updateFrame = false;
 
-      if (gameOver) {
-        ST7735_DrawString(4, 5, "GAME OVER", ST7735_RED);
-        while (1);
+      if (gameState == LOSS) {
+        ST7735_DrawString(4, 5, (myLanguage == English) ? "GAME OVER" : "FIN DEL JUEGO", ST7735_RED);
+        //ST7735_DrawString(2, 7, (myLanguage == English) ? "Press SW2 to restart" : "Presione SW2 para reiniciar", ST7735_WHITE);
+        //if ((Switch_In() & 0x02) == 0) gameState = MENU;
+        // continue;
+        while(1);
       }
+      if (score == ENEMY_TOTAL) {
+        ST7735_DrawString(4, 5, (myLanguage == English) ? "YOU WIN!" : "GANASTE!", ST7735_GREEN);
+        // ST7735_DrawString(2, 7, (myLanguage == English) ? "Press SW2 to restart" : "Presione SW2 para reiniciar", ST7735_WHITE);
+        //if ((Switch_In() & 0x02) == 0) gameState = MENU;
+        // continue;
+        while(1);
+      }
+
+      // if (gameOver) {
+      //   ST7735_DrawString(4, 5, "GAME OVER", ST7735_RED);
+      //   while (1);
+      // }
 
 
       adcVal = ADCin();
       playerX = adcVal * (128 - PLAYER_WIDTH) / 4096;
       
-      if ((Switch_In() & 0x01) == 1) FireBullet();
+      if ((Switch_In() & 0x01) == 1) {
+        Sound_Shoot();
+        FireBullet();
+      } 
       if ((Random(20) == 0)) FireEnemyBullet();
       MoveBullets();
 
@@ -452,10 +506,10 @@ int main(void){ // final main
       MoveEnemyBullets();
       CheckCollisions();
 
-      if (score == ENEMY_TOTAL) {
-        ST7735_DrawString(4, 5, "YOU WIN!", ST7735_GREEN);
-        while (1);
-      }
+      // if (score == ENEMY_TOTAL) {
+      //   ST7735_DrawString(4, 5, "YOU WIN!", ST7735_GREEN);
+      //   while (1);
+      // }
 
       DrawGame();
     }
